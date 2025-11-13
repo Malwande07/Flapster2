@@ -1,8 +1,9 @@
 package com.example.flapster2
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.biometric.BiometricManager
+import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -26,29 +27,80 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.util.Locale
 import kotlin.math.min
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         setContent {
-            Flapster2Game()
+            var biometricCallback by remember { mutableStateOf<(() -> Unit)?>(null) }
+
+            LaunchedEffect(biometricCallback) {
+                biometricCallback?.let { callback ->
+                    showBiometricPrompt(callback)
+                    biometricCallback = null
+                }
+            }
+
+            Flapster2Game(
+                onRequestBiometric = { onSuccess ->
+                    biometricCallback = onSuccess
+                },
+                isBiometricAvailable = checkBiometricAvailability()
+            )
         }
+    }
+
+    private fun checkBiometricAvailability(): Boolean {
+        val biometricManager = BiometricManager.from(this)
+        return when (biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL)) {
+            BiometricManager.BIOMETRIC_SUCCESS -> true
+            else -> false
+        }
+    }
+
+    private fun showBiometricPrompt(onSuccess: () -> Unit) {
+        val executor = ContextCompat.getMainExecutor(this)
+
+        val promptInfo = BiometricPrompt.PromptInfo.Builder()
+            .setTitle("Biometric Authentication")
+            .setSubtitle("Authenticate to access Flapster2")
+            .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL)
+            .build()
+
+        val biometricPrompt = BiometricPrompt(this, executor,
+            object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                    super.onAuthenticationSucceeded(result)
+                    onSuccess()
+                }
+            })
+
+        biometricPrompt.authenticate(promptInfo)
     }
 }
 
 enum class GameState {
-    MENU, PLAYING, GAME_OVER, SETTINGS, LEADERBOARD, NAME_INPUT
+    BIOMETRIC_LOCK, MENU, PLAYING, GAME_OVER, SETTINGS, LEADERBOARD, NAME_INPUT
 }
 
 data class Pipe(
     var x: Float,
     val height: Float,
     var scored: Boolean = false
+)
+
+data class Coin(
+    var x: Float,
+    var y: Float,
+    var collected: Boolean = false
 )
 
 data class GameSettings(
@@ -65,17 +117,22 @@ enum class Difficulty(val label: String, val speedMultiplier: Float) {
 }
 
 @Composable
-fun Flapster2Game() {
+fun Flapster2Game(
+    onRequestBiometric: (onSuccess: () -> Unit) -> Unit,
+    isBiometricAvailable: Boolean
+) {
     val context = LocalContext.current
     val database = remember { AppDatabase.getDatabase(context) }
     val repository = remember { GameRepository(database.highScoreDao()) }
     val scope = rememberCoroutineScope()
 
-    var gameState by remember { mutableStateOf(GameState.MENU) }
+    var gameState by remember { mutableStateOf(if (isBiometricAvailable) GameState.BIOMETRIC_LOCK else GameState.MENU) }
     var birdY by remember { mutableFloatStateOf(250f) }
     var birdVelocity by remember { mutableFloatStateOf(0f) }
     var pipes by remember { mutableStateOf(listOf<Pipe>()) }
+    var coins by remember { mutableStateOf(listOf<Coin>()) }
     var score by remember { mutableIntStateOf(0) }
+    var distance by remember { mutableIntStateOf(0) }
     var highScore by remember { mutableIntStateOf(0) }
     var colorIndex by remember { mutableIntStateOf(0) }
     var difficultyMultiplier by remember { mutableFloatStateOf(1f) }
@@ -108,7 +165,9 @@ fun Flapster2Game() {
         birdY = 250f
         birdVelocity = 0f
         pipes = listOf(Pipe(gameWidth, 300f))
+        coins = emptyList()
         score = 0
+        distance = 0
         difficultyMultiplier = settings.difficulty.speedMultiplier
         colorIndex = 0
     }
@@ -139,6 +198,9 @@ fun Flapster2Game() {
                 birdVelocity += gravity
                 birdY += birdVelocity
 
+                // Update distance
+                distance += (0.1f * difficultyMultiplier).toInt()
+
                 if (birdY > gameHeight - birdSize - 150f || birdY < 0f) {
                     endGame()
                     continue
@@ -154,7 +216,33 @@ fun Flapster2Game() {
                     pipes
                 }
 
+                // Update coins
+                coins = coins.map { coin ->
+                    coin.copy(x = coin.x - 4f * difficultyMultiplier)
+                }.filter { it.x > -30f && !it.collected }
+
+                // Spawn coins randomly
+                if (coins.size < 3 && (0..100).random() < 2) {
+                    coins = coins + Coin(
+                        x = gameWidth,
+                        y = (150..700).random().toFloat()
+                    )
+                }
+
                 val birdX = 150f
+                val coinSize = 30f
+
+                // Check coin collection
+                coins.forEach { coin ->
+                    if (!coin.collected &&
+                        birdX + birdSize > coin.x && birdX < coin.x + coinSize &&
+                        birdY + birdSize > coin.y && birdY < coin.y + coinSize
+                    ) {
+                        coin.collected = true
+                        score += 5 // Bonus points for collecting coins
+                    }
+                }
+
                 pipes.forEach { pipe ->
                     if (!pipe.scored && pipe.x + pipeWidth < birdX) {
                         pipe.scored = true
@@ -191,6 +279,7 @@ fun Flapster2Game() {
                 birdY = birdY,
                 birdVelocity = birdVelocity,
                 pipes = pipes,
+                coins = coins,
                 colors = colors,
                 colorIndex = colorIndex,
                 gameWidth = gameWidth,
@@ -207,6 +296,12 @@ fun Flapster2Game() {
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(text = score.toString(), fontSize = 80.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Text(
+                    text = "${distance}m",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFFFFFFF).copy(alpha = 0.8f)
+                )
                 if (difficultyMultiplier > 1.5f) {
                     Text(
                         text = "SPEED BOOST! ${String.format(Locale.US, "%.1f", difficultyMultiplier)}x",
@@ -214,6 +309,17 @@ fun Flapster2Game() {
                     )
                 }
             }
+        }
+
+        // Biometric Lock Screen
+        if (gameState == GameState.BIOMETRIC_LOCK) {
+            BiometricLockScreen(
+                onAuthenticateClick = {
+                    onRequestBiometric {
+                        gameState = GameState.MENU
+                    }
+                }
+            )
         }
 
         // Menu screen
@@ -296,12 +402,64 @@ fun Flapster2Game() {
     }
 }
 
+// Biometric Lock Screen
+@Composable
+fun BiometricLockScreen(
+    onAuthenticateClick: () -> Unit
+) {
+    Box(
+        Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.9f)),
+        Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(30.dp)
+        ) {
+            Text(
+                "🔒",
+                fontSize = 100.sp
+            )
+            Text(
+                "FLAPSTER2",
+                fontSize = 56.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+            Text(
+                "Secure Access",
+                fontSize = 24.sp,
+                color = Color.White.copy(alpha = 0.7f)
+            )
+            Spacer(Modifier.height(40.dp))
+            Button(
+                onClick = onAuthenticateClick,
+                Modifier.width(280.dp).height(65.dp),
+                colors = ButtonDefaults.buttonColors(Color(0xFF4CAF50))
+            ) {
+                Text(
+                    "🔓 AUTHENTICATE",
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            Text(
+                "Use fingerprint, face or device credentials",
+                fontSize = 14.sp,
+                color = Color.White.copy(alpha = 0.5f),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 40.dp)
+            )
+        }
+    }
+}
+
 // Game Canvas Component
 @Composable
 fun GameCanvas(
     birdY: Float,
     birdVelocity: Float,
     pipes: List<Pipe>,
+    coins: List<Coin>,
     colors: List<Color>,
     colorIndex: Int,
     gameWidth: Float,
@@ -323,6 +481,25 @@ fun GameCanvas(
             val bottomTop = (pipe.height + pipeGap) * scale
             drawRect(Color(0xFF228B22), Offset(pipe.x * scale, bottomTop), Size(pipeWidth * scale, size.height - bottomTop - 150f * scale))
             drawRect(Color(0xFF1B6B1B), Offset(pipe.x * scale, bottomTop), Size(pipeWidth * scale, 30f * scale))
+        }
+
+        // Coins
+        coins.forEach { coin ->
+            if (!coin.collected) {
+                val coinSize = 30f * scale
+                // Outer gold circle
+                drawCircle(
+                    Color(0xFFFFD700),
+                    coinSize / 2,
+                    Offset(coin.x * scale + coinSize / 2, coin.y * scale + coinSize / 2)
+                )
+                // Inner circle for depth
+                drawCircle(
+                    Color(0xFFFFA500),
+                    coinSize / 3,
+                    Offset(coin.x * scale + coinSize / 2, coin.y * scale + coinSize / 2)
+                )
+            }
         }
 
         // Bird

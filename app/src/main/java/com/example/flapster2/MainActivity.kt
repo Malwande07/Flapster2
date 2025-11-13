@@ -35,6 +35,112 @@ import kotlinx.coroutines.launch
 import java.util.Locale
 import kotlin.math.min
 
+// Language System - Fixed: removed unused 'code' property
+enum class Language(val displayName: String) {
+    ENGLISH("English"),
+    ZULU("IsiZulu"),
+    AFRIKAANS("Afrikaans")
+}
+
+object Strings {
+    fun get(key: String, language: Language): String {
+        return translations[language]?.get(key) ?: translations[Language.ENGLISH]?.get(key) ?: key
+    }
+
+    private val translations = mapOf(
+        Language.ENGLISH to mapOf(
+            "app_name" to "FLAPSTER2",
+            "locked" to "Secure Access",
+            "authenticate" to "🔓 AUTHENTICATE",
+            "auth_instruction" to "Use fingerprint, face or device credentials",
+            "play" to "▶ PLAY",
+            "leaderboard" to "🏆 LEADERBOARD",
+            "settings" to "⚙️ SETTINGS",
+            "best" to "🏆 Best:",
+            "game_over" to "GAME OVER",
+            "score" to "Score:",
+            "new_high_score" to "🎉 NEW HIGH SCORE!",
+            "play_again" to "PLAY AGAIN",
+            "menu" to "MENU",
+            "great_score" to "Great Score!",
+            "your_name" to "Your Name",
+            "submit_score" to "Submit Score",
+            "global_leaderboard" to "🏆 GLOBAL LEADERBOARD",
+            "back" to "← BACK",
+            "refresh" to "🔄 REFRESH",
+            "no_scores" to "No scores yet!\nBe the first to play!",
+            "difficulty" to "Difficulty",
+            "easy" to "Easy",
+            "normal" to "Normal",
+            "hard" to "Hard",
+            "language" to "Language",
+            "reset_high_score" to "🗑️ Reset High Score",
+            "speed_boost" to "SPEED BOOST!",
+            "distance" to "m"
+        ),
+        Language.ZULU to mapOf(
+            "app_name" to "FLAPSTER2",
+            "locked" to "Ukufinyelela Okuvikelekile",
+            "authenticate" to "🔓 QINISEKISA",
+            "auth_instruction" to "Sebenzisa izigxivizo zeminwe, ubuso noma imininingwane yedivayisi",
+            "play" to "▶ DLALA",
+            "leaderboard" to "🏆 IBHODI LABAHOLI",
+            "settings" to "⚙️ IZILUNGISELELO",
+            "best" to "🏆 Okungcono:",
+            "game_over" to "UMDLALO UPHELE",
+            "score" to "Amaphuzu:",
+            "new_high_score" to "🎉 AMAPHUZU AMASHA APHEZULU!",
+            "play_again" to "DLALA FUTHI",
+            "menu" to "IMENYU",
+            "great_score" to "Amaphuzu Amahle!",
+            "your_name" to "Igama Lakho",
+            "submit_score" to "Thumela Amaphuzu",
+            "global_leaderboard" to "🏆 IBHODI LABAHOLI LOMHLABA",
+            "back" to "← BUYELA",
+            "refresh" to "🔄 VUSELELA",
+            "no_scores" to "Awukho amaphuzu okwamanje!\nBa owokuqala ukudlala!",
+            "difficulty" to "Ubunzima",
+            "easy" to "Kulula",
+            "normal" to "Okuvamile",
+            "hard" to "Kunzima",
+            "language" to "Ulimi",
+            "reset_high_score" to "🗑️ Setha Kabusha Amaphuzu Aphezulu",
+            "speed_boost" to "UKWENYUKA KWEJUBANE!",
+            "distance" to "m"
+        ),
+        Language.AFRIKAANS to mapOf(
+            "app_name" to "FLAPSTER2",
+            "locked" to "Veilige Toegang",
+            "authenticate" to "🔓 VERIFIEER",
+            "auth_instruction" to "Gebruik vingerafdruk, gesig of toestelgeloofsbriewe",
+            "play" to "▶ SPEEL",
+            "leaderboard" to "🏆 LEIERSBORD",
+            "settings" to "⚙️ INSTELLINGS",
+            "best" to "🏆 Beste:",
+            "game_over" to "SPELETJIE VERBY",
+            "score" to "Telling:",
+            "new_high_score" to "🎉 NUWE HOËTELLING!",
+            "play_again" to "SPEEL WEER",
+            "menu" to "KIESLYS",
+            "great_score" to "Groot Telling!",
+            "your_name" to "Jou Naam",
+            "submit_score" to "Dien Telling In",
+            "global_leaderboard" to "🏆 WÊRELDWYE LEIERSBORD",
+            "back" to "← TERUG",
+            "refresh" to "🔄 VERFRIS",
+            "no_scores" to "Nog geen tellings nie!\nWees die eerste om te speel!",
+            "difficulty" to "Moeilikheidsgraad",
+            "easy" to "Maklik",
+            "normal" to "Normaal",
+            "hard" to "Moeilik",
+            "language" to "Taal",
+            "reset_high_score" to "🗑️ Herstel Hoëtelling",
+            "speed_boost" to "SPOEDVERHOGING!",
+            "distance" to "m"
+        )
+    )
+}
+
 class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -107,13 +213,15 @@ data class GameSettings(
     val soundEnabled: Boolean = true,
     val vibrationEnabled: Boolean = true,
     val difficulty: Difficulty = Difficulty.NORMAL,
-    val showFPS: Boolean = false
+    val showFPS: Boolean = false,
+    val language: Language = Language.ENGLISH
 )
 
-enum class Difficulty(val label: String, val speedMultiplier: Float) {
-    EASY("Easy", 0.7f),
-    NORMAL("Normal", 1.0f),
-    HARD("Hard", 1.5f)
+// Difficulty enum - Fixed: removed unused 'label' property
+enum class Difficulty(val speedMultiplier: Float) {
+    EASY(0.7f),
+    NORMAL(1.0f),
+    HARD(1.5f)
 }
 
 @Composable
@@ -297,14 +405,14 @@ fun Flapster2Game(
             ) {
                 Text(text = score.toString(), fontSize = 80.sp, fontWeight = FontWeight.Bold, color = Color.White)
                 Text(
-                    text = "${distance}m",
+                    text = "$distance${Strings.get("distance", settings.language)}",
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFFFFFFFF).copy(alpha = 0.8f)
                 )
                 if (difficultyMultiplier > 1.5f) {
                     Text(
-                        text = "SPEED BOOST! ${String.format(Locale.US, "%.1f", difficultyMultiplier)}x",
+                        text = "${Strings.get("speed_boost", settings.language)} ${String.format(Locale.US, "%.1f", difficultyMultiplier)}x",
                         fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFFF44F)
                     )
                 }
@@ -314,6 +422,7 @@ fun Flapster2Game(
         // Biometric Lock Screen
         if (gameState == GameState.BIOMETRIC_LOCK) {
             BiometricLockScreen(
+                language = settings.language,
                 onAuthenticateClick = {
                     onRequestBiometric {
                         gameState = GameState.MENU
@@ -326,6 +435,7 @@ fun Flapster2Game(
         if (gameState == GameState.MENU) {
             MenuScreen(
                 highScore = highScore,
+                language = settings.language,
                 onPlayClick = { startGame() },
                 onSettingsClick = { gameState = GameState.SETTINGS },
                 onLeaderboardClick = {
@@ -344,6 +454,7 @@ fun Flapster2Game(
             NameInputScreen(
                 score = score,
                 playerName = playerName,
+                language = settings.language,
                 onNameChange = { playerName = it },
                 onSubmit = {
                     scope.launch {
@@ -378,6 +489,7 @@ fun Flapster2Game(
             LeaderboardScreen(
                 onlineScores = onlineLeaderboard,
                 isLoading = isLoadingLeaderboard,
+                language = settings.language,
                 onRefresh = {
                     isLoadingLeaderboard = true
                     scope.launch {
@@ -395,6 +507,7 @@ fun Flapster2Game(
                 score = score,
                 highScore = highScore,
                 isNewHighScore = score == highScore && score > 0,
+                language = settings.language,
                 onPlayAgain = { startGame() },
                 onMenuClick = { gameState = GameState.MENU }
             )
@@ -405,6 +518,7 @@ fun Flapster2Game(
 // Biometric Lock Screen
 @Composable
 fun BiometricLockScreen(
+    language: Language,
     onAuthenticateClick: () -> Unit
 ) {
     Box(
@@ -420,13 +534,13 @@ fun BiometricLockScreen(
                 fontSize = 100.sp
             )
             Text(
-                "FLAPSTER2",
+                Strings.get("app_name", language),
                 fontSize = 56.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White
             )
             Text(
-                "Secure Access",
+                Strings.get("locked", language),
                 fontSize = 24.sp,
                 color = Color.White.copy(alpha = 0.7f)
             )
@@ -437,13 +551,13 @@ fun BiometricLockScreen(
                 colors = ButtonDefaults.buttonColors(Color(0xFF4CAF50))
             ) {
                 Text(
-                    "🔓 AUTHENTICATE",
+                    Strings.get("authenticate", language),
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
             Text(
-                "Use fingerprint, face or device credentials",
+                Strings.get("auth_instruction", language),
                 fontSize = 14.sp,
                 color = Color.White.copy(alpha = 0.5f),
                 textAlign = TextAlign.Center,
@@ -518,23 +632,24 @@ fun GameCanvas(
 @Composable
 fun MenuScreen(
     highScore: Int,
+    language: Language,
     onPlayClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onLeaderboardClick: () -> Unit
 ) {
     Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)), Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(20.dp)) {
-            Text("FLAPSTER2", fontSize = 72.sp, fontWeight = FontWeight.Bold, color = Color.White)
-            Text("🏆 Best: $highScore", fontSize = 32.sp, color = Color(0xFFFFF44F))
+            Text(Strings.get("app_name", language), fontSize = 72.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            Text("${Strings.get("best", language)} $highScore", fontSize = 32.sp, color = Color(0xFFFFF44F))
             Spacer(Modifier.height(40.dp))
             Button(onClick = onPlayClick, Modifier.width(250.dp).height(60.dp), colors = ButtonDefaults.buttonColors(Color(0xFF4CAF50))) {
-                Text("▶ PLAY", fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                Text(Strings.get("play", language), fontSize = 28.sp, fontWeight = FontWeight.Bold)
             }
             Button(onClick = onLeaderboardClick, Modifier.width(250.dp).height(60.dp), colors = ButtonDefaults.buttonColors(Color(0xFFFF9800))) {
-                Text("🏆 LEADERBOARD", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text(Strings.get("leaderboard", language), fontSize = 20.sp, fontWeight = FontWeight.Bold)
             }
             Button(onClick = onSettingsClick, Modifier.width(250.dp).height(60.dp), colors = ButtonDefaults.buttonColors(Color(0xFF2196F3))) {
-                Text("⚙️ SETTINGS", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                Text(Strings.get("settings", language), fontSize = 24.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -545,6 +660,7 @@ fun MenuScreen(
 fun NameInputScreen(
     score: Int,
     playerName: String,
+    language: Language,
     onNameChange: (String) -> Unit,
     onSubmit: () -> Unit
 ) {
@@ -553,19 +669,19 @@ fun NameInputScreen(
             Modifier.padding(30.dp).background(Color.White).padding(30.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("Great Score!", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Color.Blue)
-            Text("Score: $score", fontSize = 24.sp, color = Color.Black)
+            Text(Strings.get("great_score", language), fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Color.Blue)
+            Text("${Strings.get("score", language)} $score", fontSize = 24.sp, color = Color.Black)
             Spacer(Modifier.height(20.dp))
             OutlinedTextField(
                 value = playerName,
                 onValueChange = onNameChange,
-                label = { Text("Your Name") },
+                label = { Text(Strings.get("your_name", language)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(Modifier.height(20.dp))
             Button(onClick = onSubmit, Modifier.width(200.dp)) {
-                Text("Submit Score", fontSize = 18.sp)
+                Text(Strings.get("submit_score", language), fontSize = 18.sp)
             }
         }
     }
@@ -585,19 +701,41 @@ fun SettingsScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(Modifier.height(40.dp))
-            Text("⚙️ SETTINGS", fontSize = 48.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            Text(Strings.get("settings", settings.language), fontSize = 48.sp, fontWeight = FontWeight.Bold, color = Color.White)
             Spacer(Modifier.height(40.dp))
 
-            Text("Difficulty", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            // Language Selection
+            Text(Strings.get("language", settings.language), fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            Spacer(Modifier.height(20.dp))
+
+            Language.entries.forEach { lang ->
+                Button(
+                    onClick = { onSettingsChange(settings.copy(language = lang)) },
+                    Modifier.width(280.dp).height(55.dp),
+                    colors = ButtonDefaults.buttonColors(if (settings.language == lang) Color(0xFF4CAF50) else Color.Gray)
+                ) {
+                    Text(lang.displayName, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                }
+                Spacer(Modifier.height(10.dp))
+            }
+
+            Spacer(Modifier.height(30.dp))
+
+            Text(Strings.get("difficulty", settings.language), fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
             Spacer(Modifier.height(20.dp))
 
             Difficulty.entries.forEach { diff ->
+                val diffLabel = when (diff) {
+                    Difficulty.EASY -> Strings.get("easy", settings.language)
+                    Difficulty.NORMAL -> Strings.get("normal", settings.language)
+                    Difficulty.HARD -> Strings.get("hard", settings.language)
+                }
                 Button(
                     onClick = { onSettingsChange(settings.copy(difficulty = diff)) },
                     Modifier.width(280.dp).height(55.dp),
                     colors = ButtonDefaults.buttonColors(if (settings.difficulty == diff) Color(0xFF4CAF50) else Color.Gray)
                 ) {
-                    Text(diff.label, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Text(diffLabel, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 }
                 Spacer(Modifier.height(10.dp))
             }
@@ -608,7 +746,7 @@ fun SettingsScreen(
                 Modifier.width(280.dp).height(55.dp),
                 colors = ButtonDefaults.buttonColors(Color(0xFFFF5722))
             ) {
-                Text("🗑️ Reset High Score", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text(Strings.get("reset_high_score", settings.language), fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
             Spacer(Modifier.height(20.dp))
             Button(
@@ -616,7 +754,7 @@ fun SettingsScreen(
                 Modifier.width(200.dp).height(55.dp),
                 colors = ButtonDefaults.buttonColors(Color(0xFF4CAF50))
             ) {
-                Text("← BACK", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text(Strings.get("back", settings.language), fontSize = 20.sp, fontWeight = FontWeight.Bold)
             }
             Spacer(Modifier.height(40.dp))
         }
@@ -628,6 +766,7 @@ fun SettingsScreen(
 fun LeaderboardScreen(
     onlineScores: List<HighScoreResponse>,
     isLoading: Boolean,
+    language: Language,
     onRefresh: () -> Unit,
     onBackClick: () -> Unit
 ) {
@@ -635,7 +774,7 @@ fun LeaderboardScreen(
         Column(Modifier.fillMaxSize().padding(20.dp)) {
             Spacer(Modifier.height(40.dp))
             Text(
-                "🏆 GLOBAL LEADERBOARD",
+                Strings.get("global_leaderboard", language),
                 fontSize = 36.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFFFFD700),
@@ -649,10 +788,10 @@ fun LeaderboardScreen(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Button(onClick = onBackClick, colors = ButtonDefaults.buttonColors(Color(0xFF4CAF50))) {
-                    Text("← BACK")
+                    Text(Strings.get("back", language))
                 }
                 Button(onClick = onRefresh, colors = ButtonDefaults.buttonColors(Color(0xFF2196F3))) {
-                    Text("🔄 REFRESH")
+                    Text(Strings.get("refresh", language))
                 }
             }
 
@@ -665,7 +804,7 @@ fun LeaderboardScreen(
             } else if (onlineScores.isEmpty()) {
                 Box(Modifier.fillMaxSize(), Alignment.Center) {
                     Text(
-                        "No scores yet!\nBe the first to play!",
+                        Strings.get("no_scores", language),
                         fontSize = 24.sp,
                         color = Color.White,
                         textAlign = TextAlign.Center
@@ -744,6 +883,7 @@ fun GameOverScreen(
     score: Int,
     highScore: Int,
     isNewHighScore: Boolean,
+    language: Language,
     onPlayAgain: () -> Unit,
     onMenuClick: () -> Unit
 ) {
@@ -752,16 +892,16 @@ fun GameOverScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            Text("GAME OVER", fontSize = 60.sp, fontWeight = FontWeight.Bold, color = Color.Red)
+            Text(Strings.get("game_over", language), fontSize = 60.sp, fontWeight = FontWeight.Bold, color = Color.Red)
             Column(
                 Modifier.background(Color.White).padding(30.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text("Score: $score", fontSize = 32.sp, color = Color.Blue)
-                Text("🏆 Best: $highScore", fontSize = 24.sp, color = Color(0xFFFFD700))
+                Text("${Strings.get("score", language)} $score", fontSize = 32.sp, color = Color.Blue)
+                Text("${Strings.get("best", language)} $highScore", fontSize = 24.sp, color = Color(0xFFFFD700))
                 if (isNewHighScore) {
                     Text(
-                        "🎉 NEW HIGH SCORE!",
+                        Strings.get("new_high_score", language),
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.Green
@@ -774,14 +914,14 @@ fun GameOverScreen(
                 Modifier.width(250.dp).height(60.dp),
                 colors = ButtonDefaults.buttonColors(Color(0xFF4CAF50))
             ) {
-                Text("PLAY AGAIN", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                Text(Strings.get("play_again", language), fontSize = 24.sp, fontWeight = FontWeight.Bold)
             }
             Button(
                 onClick = onMenuClick,
                 Modifier.width(250.dp).height(60.dp),
                 colors = ButtonDefaults.buttonColors(Color(0xFF2196F3))
             ) {
-                Text("MENU", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                Text(Strings.get("menu", language), fontSize = 24.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
